@@ -1,0 +1,85 @@
+
+
+# Use the latest Ubuntu image as the base
+FROM ubuntu:22.04
+
+# Set environment variables for non-interactive installation
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Update package list and install basic dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    wget \
+    unzip \
+    git \
+    build-essential \
+    libssl-dev \
+    libffi-dev \
+    python3 \
+    nano \
+    python3-pip \
+    software-properties-common \
+    && rm -rf /var/lib/apt/lists/*
+
+
+# Add repository for OpenJDK 17
+RUN apt-get update
+
+# Install OpenJDK 17
+RUN apt-get install -y openjdk-11-jdk
+
+# Install Node.js (latest LTS version) and npm
+RUN curl -sL https://deb.nodesource.com/setup_lts.x | bash - \
+    && apt-get install -y nodejs
+
+# Install Yarn package manager
+RUN npm install -g yarn
+
+# Install React Native CLI
+RUN npm install -g react-native-cli
+
+# Install Android SDK
+RUN mkdir -p /usr/local/android-sdk/cmdline-tools
+ENV ANDROID_SDK_ROOT /usr/local/android-sdk
+RUN wget -q "https://dl.google.com/android/repository/commandlinetools-linux-7583922_latest.zip" -O sdk-tools.zip \
+    && unzip sdk-tools.zip -d $ANDROID_SDK_ROOT/cmdline-tools \
+    && mv $ANDROID_SDK_ROOT/cmdline-tools/cmdline-tools $ANDROID_SDK_ROOT/cmdline-tools/latest \
+    && rm sdk-tools.zip
+
+# Update PATH
+ENV PATH $PATH:$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$ANDROID_SDK_ROOT/platform-tools:$ANDROID_SDK_ROOT/emulator
+
+# Install Android SDK packages
+RUN yes | sdkmanager --licenses \
+    && sdkmanager "platform-tools" \
+    "platforms;android-34" \
+    "build-tools;34.0.0" \
+    "extras;android;m2repository" \
+    "extras;google;m2repository" \
+    "extras;google;google_play_services"
+
+# Set environment variables for Java and Android SDK
+ENV JAVA_HOME /usr/lib/jvm/java-11-openjdk-arm64
+ENV PATH $JAVA_HOME/bin:$PATH
+
+
+# Clean up
+RUN apt-get clean
+
+# Create and set application directory
+WORKDIR /app
+
+# Copy package.json and yarn.lock files
+COPY package.json yarn.lock ./
+
+# Install project dependencies
+RUN yarn install
+
+# Copy the rest of the application code
+COPY . .
+
+# Start the React Native application build
+# CMD ["yarn", "android"]
+
+# Expose necessary ports
+# EXPOSE 8081
